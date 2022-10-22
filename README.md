@@ -26,4 +26,6 @@ defer strm.close();
 
 // use the generic interface
 try Socksv5.client(cli.reader(), cli.writer(), null, "www.google.com", 80);
+
+// read/write to strm...
 ```
