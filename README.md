@@ -2,6 +2,21 @@
 A simple, non-allocating SOCKS 5/4/4a client library for Zig
 
 *Tested against Zig 0.10.x and 0.9.1*
+## Features
+- [x] Protocol version 5
+  - [x] Connect command
+  - [ ] UDP Associate command
+  - [x] Password authentication
+  - [x] IPv4 address
+  - [x] IPv6 address
+  - [x] hostname address
+- [x] Protocol version 4 and 4a
+  - [x] Connect command
+  - [ ] UDP Associate command
+  - [x] IPv4 address
+  - [x] hostname address
+- [x] Remote DNS lookups
+
 ## Usage
 ```zig
 const std = @import("std");
