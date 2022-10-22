@@ -24,8 +24,8 @@ const allocator = gpa.allocator();
 const strm = try std.net.tcpConnectToHost(allocator, "localhost", 1080);
 defer strm.close();
 
-// use the generic interface
-try Socksv5.client(cli.reader(), cli.writer(), null, "www.google.com", 80);
+// use the generic interface - should work with any std.io.Reader and std.io.Writer
+try Socksv5.client(strm.reader(), strm.writer(), null, "www.google.com", 80);
 
 // read/write to strm...
 ```
