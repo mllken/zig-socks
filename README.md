@@ -1,6 +1,7 @@
 # zig-socks
 A simple, non-allocating SOCKS 5/4/4a client library for Zig
 
+*Tested against Zig 0.10.x and 0.9.1*
 ## Usage
 ```zig
 const Socksv5 = @import("socks.zig").Socksv5;
