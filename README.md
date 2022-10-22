@@ -5,6 +5,7 @@ A simple, non-allocating SOCKS 5/4/4a client library for Zig
 ## Features
 - [x] Protocol version 5
   - [x] Connect command
+  - [ ] Bind command
   - [ ] UDP Associate command
   - [x] Password authentication
   - [x] IPv4 address
@@ -12,7 +13,7 @@ A simple, non-allocating SOCKS 5/4/4a client library for Zig
   - [x] hostname address
 - [x] Protocol version 4 and 4a
   - [x] Connect command
-  - [ ] UDP Associate command
+  - [ ] Bind command
   - [x] IPv4 address
   - [x] hostname address
 - [x] Remote DNS lookups
