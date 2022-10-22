@@ -8,7 +8,7 @@ const Socksv5 = @import("socks.zig").Socksv5;
 const ip = std.x.net.ip;
 const IPv4 = std.x.os.IPv4;
 
-pub fn main() void {
+pub fn main() !void {
     const proxy = ip.Address.initIPv4(IPv4.localhost, 1080);
     const cli = try Socksv5.connect(proxy, null, "www.google.com", 80);
     defer cli.deinit();
