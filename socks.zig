@@ -17,6 +17,8 @@ pub const Socksv5 = struct {
     pub const VERSION = 5;
 
     pub const Auth = enum(u8) {
+        pub const VERSION = 1;
+
         MethodNone = 0x00,
         MethodGssApi = 0x01,
         MethodUserPassword = 0x02,
@@ -160,13 +162,14 @@ pub const Socksv5 = struct {
             .MethodNotAcceptable => return error.MethodNotAcceptable, 
             .MethodUserPassword => {
                 if (auth) |a| {
-                    if (a.user.len > @sizeOf(u8) or a.password.len > @sizeOf(u8)) {
+                    if (a.user.len > 255 or a.password.len > 255) {
                         return error.ParamTooLarge;
                     }
 
-                    buf[0] = @truncate(u8, a.user.len);
-                    mem.copy(u8, buf[1..], a.user);
-                    var idx: usize = 1 + a.user.len;
+                    buf[0] = Auth.VERSION;
+                    buf[1] = @truncate(u8, a.user.len);
+                    mem.copy(u8, buf[2..], a.user);
+                    var idx: usize = 2 + a.user.len;
                     buf[idx] = @truncate(u8, a.password.len);
                     idx += 1;
                     mem.copy(u8, buf[idx..], a.password);
