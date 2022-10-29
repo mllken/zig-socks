@@ -366,6 +366,37 @@ test "mock SOCKS 5 server" {
         0x00, 0x01, 127, 0, 0, 1, 0x20, 0xfb // rsrv, atyp, IPv4, port
     };
     try std.testing.expectEqualStrings(client_stream.getWritten(), &expected);
+
+    // test user/password authentication
+    client_stream.reset();
+
+    // mock server success response
+    var server_bytes2 = [_]u8{
+        // 1st packet: method auth password
+        0x05, @enumToInt(Socksv5.Auth.MethodUserPassword),
+        // 2nd packet: indicate auth success
+        0x05, 0x00,
+        // 3rd packet
+        0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0xbb, 0xbb
+    };
+    var server_stream2 = io.fixedBufferStream(&server_bytes2);
+
+    const ai = Socksv5.AuthInfo{
+        .user = "a",
+        .password = "xxx",
+    };
+    try Socksv5.clientAddress(server_stream2.reader(), client_stream.writer(), ai, dst);
+
+    const expected2 = [_]u8{
+        // 1st packet: method userpassword auth 
+        Socksv5.VERSION, 0x02, @enumToInt(Socksv5.Auth.MethodNone), @enumToInt(Socksv5.Auth.MethodUserPassword),
+        // 2nd packet: auth info
+        Socksv5.Auth.VERSION, 0x01, 'a', 0x03, 'x', 'x', 'x',
+        // 3rd packet - rsrv, atyp, IPv4, port
+        Socksv5.VERSION, @enumToInt(Socksv5.Cmd.Connect), 0x00, 0x01, 127, 0, 0, 1, 0x20, 0xfb
+    };
+
+    try std.testing.expectEqualStrings(client_stream.getWritten(), &expected2);
 }
 
 test "mock SOCKS 4 server" {
