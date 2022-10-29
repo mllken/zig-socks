@@ -360,10 +360,8 @@ test "mock SOCKS 5 server" {
     const expected = [_]u8{
         // 1st packet: method none auth
         Socksv5.VERSION, 0x01, 0,
-        // 2nd packet
-        Socksv5.VERSION, 
-        @enumToInt(Socksv5.Cmd.Connect),
-        0x00, 0x01, 127, 0, 0, 1, 0x20, 0xfb // rsrv, atyp, IPv4, port
+        // 2nd packet - vers, method, rsrv, atyp, IPv4, port
+        Socksv5.VERSION, @enumToInt(Socksv5.Cmd.Connect), 0x00, 0x01, 127, 0, 0, 1, 0x20, 0xfb
     };
     try std.testing.expectEqualStrings(client_stream.getWritten(), &expected);
 
@@ -383,7 +381,7 @@ test "mock SOCKS 5 server" {
 
     const ai = Socksv5.AuthInfo{
         .user = "a",
-        .password = "xxx",
+        .password = "xyz",
     };
     try Socksv5.clientAddress(server_stream2.reader(), client_stream.writer(), ai, dst);
 
@@ -391,11 +389,10 @@ test "mock SOCKS 5 server" {
         // 1st packet: method userpassword auth 
         Socksv5.VERSION, 0x02, @enumToInt(Socksv5.Auth.MethodNone), @enumToInt(Socksv5.Auth.MethodUserPassword),
         // 2nd packet: auth info
-        Socksv5.Auth.VERSION, 0x01, 'a', 0x03, 'x', 'x', 'x',
-        // 3rd packet - rsrv, atyp, IPv4, port
+        Socksv5.Auth.VERSION, 0x01, 'a', 0x03, 'x', 'y', 'z',
+        // 3rd packet - vers, method, rsrv, atyp, IPv4, port
         Socksv5.VERSION, @enumToInt(Socksv5.Cmd.Connect), 0x00, 0x01, 127, 0, 0, 1, 0x20, 0xfb
     };
-
     try std.testing.expectEqualStrings(client_stream.getWritten(), &expected2);
 }
 
