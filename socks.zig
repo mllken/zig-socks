@@ -6,10 +6,8 @@
 const std = @import("std");
 const mem = std.mem;
 const io = std.io;
-const ip = std.x.net.ip;
-const tcp = std.x.net.tcp;
-const IPv4 = std.x.os.IPv4;
-const IPv6 = std.x.os.IPv6;
+const os = std.os;
+const net = std.net;
 const testing = std.testing;
 
 /// Socksv5 is a SOCKS 5 client
@@ -59,35 +57,27 @@ pub const Socksv5 = struct {
     };
 
     /// Connect to the specified `host` and `port` via the specified SOCKS 5 `proxy`.
-    pub fn connect(proxy: ip.Address, auth: ?AuthInfo, host: []const u8, port: u16) !tcp.Client {
-        const tcpClient = try tcp.Client.init(.ip, .{ .close_on_exec = true });
-        errdefer tcpClient.deinit();
+    pub fn connect(proxy: net.Address, auth: ?AuthInfo, host: []const u8, port: u16) !net.Stream {
+        const stream = try net.tcpConnectToAddress(proxy);
+        try Socksv5.client(stream.reader(), stream.writer(), auth, host, port);
 
-        try tcpClient.connect(proxy);
-        try Socksv5.client(tcpClient.reader(0), tcpClient.writer(0), auth, host, port);
-
-        return tcpClient;
+        return stream;
     }
 
     /// Connect to the specified `destination` via the specified SOCKS 5 `proxy`
-    pub fn connectAddress(proxy: ip.Address, auth: ?AuthInfo, destination: ip.Address) !tcp.Client {
-        const tcpClient = try tcp.Client.init(.ip, .{ .close_on_exec = true });
-        errdefer tcpClient.deinit();
+    pub fn connectAddress(proxy: net.Address, auth: ?AuthInfo, destination: net.Address) !net.Stream {
+        const stream = try net.tcpConnectToAddress(proxy); 
+        try Socksv5.clientAddress(stream.reader(), stream.writer(), auth, destination);
 
-        try tcpClient.connect(proxy);
-        try Socksv5.clientAddress(tcpClient.reader(0), tcpClient.writer(0), auth, destination);
-
-        return tcpClient;
+        return stream;
     }
 
     /// Connect an existing `reader` and `writer` to the specified `host` and
     /// `port` via SOCKS 5.
     pub fn client(reader: anytype, writer: anytype, auth: ?AuthInfo, host: []const u8, port: u16) !void {
-        if (IPv4.parse(host)) |ip4| {
-            const dst = ip.Address.initIPv4(ip4, port);
+        if (net.Ip4Address.parse(host, port)) |dst| {
             return Socksv5.clientAddress(reader, writer, auth, dst);
-        } else |_| if (IPv6.parse(host)) |ip6| {
-                const dst = ip.Address.initIPv6(ip6, port);
+        } else |_| if (net.Ip6Address.parse(host, port)) |dst| {
                 return Socksv5.clientAddress(reader, writer, auth, dst);
         } else |_| {
             try negotiate_auth(reader, writer, auth);
@@ -109,28 +99,32 @@ pub const Socksv5 = struct {
     }
 
     /// Connect an existing `reader` and `writer` to the specified `destination` via SOCKS 5.
-    pub fn clientAddress(reader: anytype, writer: anytype, auth: ?AuthInfo, destination: ip.Address) !void {
+    pub fn clientAddress(reader: anytype, writer: anytype, auth: ?AuthInfo, destination: net.Address) !void {
         try negotiate_auth(reader, writer, auth);
 
         var buf: [6 + 16]u8 = undefined;
         buf[0] = VERSION;
         buf[1] = @enumToInt(Cmd.Connect);
         buf[2] = 0;
-        switch (destination) {
-            .ipv4 => |ip4| {
+        switch (destination.any.family) {
+            os.AF.INET => {
                 buf[3] = @enumToInt(Addr.TypeIPv4);
-                mem.copy(u8, buf[4..8], &ip4.host.octets);
-                mem.writeIntSliceBig(u16, buf[8..10], ip4.port);
+                const octets = @ptrCast(*const [4]u8, &destination.in.sa.addr);
+                mem.copy(u8, buf[4..8], octets);
+                mem.writeIntSliceBig(u16, buf[8..10], destination.getPort());
 
                 try writer.writeAll(buf[0..10]);
             },
-            .ipv6 => |ip6| {
+            os.AF.INET6 => {
                 buf[3] = @enumToInt(Addr.TypeIPv6);
-                mem.copy(u8, buf[4..20], &ip6.host.octets);
-                mem.writeIntSliceBig(u16, buf[20..22], ip6.port);
+                const octets = @ptrCast(*const [16]u8, &destination.in6.sa.addr);
+                // TODO: FIX this.....
+                mem.copy(u8, buf[4..20], octets);
+                mem.writeIntSliceBig(u16, buf[20..22], destination.getPort());
 
                 try writer.writeAll(buf[0..22]);
-            }
+            },
+            else => return error.BadAddress,
         }
         try read_response(reader);
     }
@@ -242,34 +236,27 @@ pub const Socksv4 = struct {
 
     /// Connect to the specified `host` and `port` via the specified SOCKS 4 `proxy`.
     /// If a hostname is given, SOCKS 4a will be used.
-    pub fn connect(proxy: ip.Address, options: Options, host: []const u8, port: u16) !tcp.Client {
-        const tcpClient = try tcp.Client.init(.ip, .{ .close_on_exec = true });
-        errdefer tcpClient.deinit();
+    pub fn connect(proxy: net.Address, options: Options, host: []const u8, port: u16) !net.Stream {
+        const stream = try net.tcpConnectToAddress(proxy);
+        try Socksv4.client(stream.reader(), stream.writer(), options, host, port);
 
-        try tcpClient.connect(proxy);
-        try Socksv4.client(tcpClient.reader(0), tcpClient.writer(0), options, host, port);
-
-        return tcpClient;
+        return stream;
     }
 
     /// Connect to the specified `destination` via the specified SOCKS 4 `proxy`
-    pub fn connectAddress(proxy: ip.Address, options: Options, destination: ip.Address) !tcp.Client {
-        const tcpClient = try tcp.Client.init(.ip, .{ .close_on_exec = true });
-        errdefer tcpClient.deinit();
+    pub fn connectAddress(proxy: net.Address, options: Options, destination: net.Address) !net.Stream {
+        const stream = try net.tcpConnectToAddress(proxy);
+        try Socksv4.clientAddress(stream.reader(), stream.writer(), options, destination);
 
-        try tcpClient.connect(proxy);
-        try Socksv4.clientAddress(tcpClient.reader(0), tcpClient.writer(0), options, destination);
-
-        return tcpClient;
+        return stream;
     }
 
     /// Connect an existing `reader` and `writer` to the specified `host` and
     /// `port` via SOCKS 4.  If a hostname is given, SOCKS 4a will be used.
     pub fn client(reader: anytype, writer: anytype, options: Options, host: []const u8, port: u16) !void {
-        if (IPv4.parse(host)) |ip4| {
-            const dst = ip.Address.initIPv4(ip4, port);
+        if (net.Ip4Address.parse(host, port)) |dst| {
             return Socksv4.clientAddress(reader, writer, .{}, dst);
-        } else |_| if (IPv6.parse(host)) |_| {
+        } else |_| if (net.Ip6Address.parse(host, port)) |_| {
             return error.IPv6Unsupported;
         } else |_| {
             if (options.user.len > 128 or host.len > 256)
@@ -298,21 +285,21 @@ pub const Socksv4 = struct {
     }
 
     /// Connect an existing `reader` and `writer` to the specified `destination` via SOCKS 4.
-    pub fn clientAddress(reader: anytype, writer: anytype, options: Options, destination: ip.Address) !void {
+    pub fn clientAddress(reader: anytype, writer: anytype, options: Options, destination: net.Address) !void {
         if (options.user.len > 128)
             return error.ParamTooLarge;
 
         var buf: [256]u8 = undefined;
         buf[0] = VERSION;
         buf[1] = @enumToInt(Cmd.Connect);
-        switch (destination) {
-            .ipv4 => |ip4| {
-                mem.writeIntSliceBig(u16, buf[2..4], ip4.port);
-                mem.copy(u8, buf[4..8], &ip4.host.octets);
+        switch (destination.any.family) {
+            os.AF.INET => {
+                mem.writeIntSliceBig(u16, buf[2..4], destination.getPort());
+                const octets = @ptrCast(*const [4]u8, &destination.in.sa.addr);
+                mem.copy(u8, buf[4..8], octets);
             },
-            .ipv6 => |_| {
-                return error.IPv6Unsupported;
-            }
+            os.AF.INET6 => return error.IPv6Unsupported,
+            else => return error.Unsupported,
         }
         var idx: usize = 8;
         mem.copy(u8, buf[idx..], options.user);
@@ -354,7 +341,7 @@ test "mock SOCKS 5 server" {
     };
     var server_stream = io.fixedBufferStream(&server_bytes);
 
-    const dst = ip.Address.initIPv4(IPv4.localhost, 8443);
+    const dst = try net.Address.parseIp4("127.0.0.1", 8443);
     try Socksv5.clientAddress(server_stream.reader(), client_stream.writer(), null, dst);
 
     const expected = [_]u8{
@@ -409,7 +396,7 @@ test "mock SOCKS 4 server" {
     const options = Socksv4.Options {
         .user = "root",
     };
-    const dst = ip.Address.initIPv4(IPv4.localhost, 8443);
+    const dst = try net.Address.parseIp4("127.0.0.1", 8443);
     try Socksv4.clientAddress(server_stream.reader(), client_stream.writer(), options, dst);
 
     const expected = [_]u8{
