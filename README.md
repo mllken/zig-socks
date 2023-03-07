@@ -22,7 +22,7 @@ A simple, non-allocating SOCKS 5/4/4a client library for Zig
 ## Usage
 ```zig
 const std = @import("std");
-const net = std.net
+const net = std.net;
 const Socksv5 = @import("socks.zig").Socksv5;
 
 pub fn main() !void {
