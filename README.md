@@ -22,16 +22,15 @@ A simple, non-allocating SOCKS 5/4/4a client library for Zig
 ## Usage
 ```zig
 const std = @import("std");
-const ip = std.x.net.ip;
-const IPv4 = std.x.os.IPv4;
+const net = std.net
 const Socksv5 = @import("socks.zig").Socksv5;
 
 pub fn main() !void {
-    const proxy = ip.Address.initIPv4(IPv4.localhost, 1080);
-    const cli = try Socksv5.connect(proxy, null, "www.google.com", 80);
-    defer cli.deinit();
+    const proxy = try net.parseIp4("127.0.0.1", 1080);
+    const stream = try Socksv5.connect(proxy, null, "www.google.com", 80);
+    defer stream.close();
 
-    // read/write to cli...
+    // read/write to stream...
 }
 ```
 or
@@ -39,11 +38,11 @@ or
 var gpa = GeneralPurposeAllocator(.{})();
 const allocator = gpa.allocator();
 
-const strm = try std.net.tcpConnectToHost(allocator, "localhost", 1080);
-defer strm.close();
+const stream = try std.net.tcpConnectToHost(allocator, "localhost", 1080);
+defer stream.close();
 
 // use the generic interface - should work with any std.io.Reader and std.io.Writer
-try Socksv5.client(strm.reader(), strm.writer(), null, "www.google.com", 80);
+try Socksv5.client(stream.reader(), stream.writer(), null, "www.google.com", 80);
 
-// read/write to strm...
+// read/write to stream...
 ```
