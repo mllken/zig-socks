@@ -26,7 +26,7 @@ const net = std.net;
 const Socksv5 = @import("socks.zig").Socksv5;
 
 pub fn main() !void {
-    const proxy = try net.parseIp4("127.0.0.1", 1080);
+    const proxy = try net.Address.parseIp4("127.0.0.1", 1080);
     const stream = try Socksv5.connect(proxy, null, "www.google.com", 80);
     defer stream.close();
 
