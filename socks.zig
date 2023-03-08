@@ -8,7 +8,6 @@ const mem = std.mem;
 const io = std.io;
 const os = std.os;
 const net = std.net;
-const testing = std.testing;
 
 /// Socksv5 is a SOCKS 5 client
 pub const Socksv5 = struct {
@@ -341,7 +340,7 @@ test "mock SOCKS 5 server" {
     };
     var server_stream = io.fixedBufferStream(&server_bytes);
 
-    const dst = try net.Address.parseIp4("127.0.0.1", 8443);
+    const dst = net.Address.initIp4([_]u8{127, 0, 0, 1}, 8443);
     try Socksv5.clientAddress(server_stream.reader(), client_stream.writer(), null, dst);
 
     const expected = [_]u8{
@@ -396,7 +395,7 @@ test "mock SOCKS 4 server" {
     const options = Socksv4.Options {
         .user = "root",
     };
-    const dst = try net.Address.parseIp4("127.0.0.1", 8443);
+    const dst = net.Address.initIp4([_]u8{127, 0, 0, 1}, 8443);
     try Socksv4.clientAddress(server_stream.reader(), client_stream.writer(), options, dst);
 
     const expected = [_]u8{
