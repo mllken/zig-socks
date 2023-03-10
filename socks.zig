@@ -117,7 +117,6 @@ pub const Socksv5 = struct {
             os.AF.INET6 => {
                 buf[3] = @enumToInt(Addr.TypeIPv6);
                 const octets = @ptrCast(*const [16]u8, &destination.in6.sa.addr);
-                // TODO: FIX this.....
                 mem.copy(u8, buf[4..20], octets);
                 mem.writeIntSliceBig(u16, buf[20..22], destination.getPort());
 
