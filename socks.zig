@@ -83,12 +83,12 @@ pub const Socksv5 = struct {
 
             var buf: [7 + 255]u8 = undefined;
             buf[0] = VERSION;
-            buf[1] = @enumToInt(Cmd.Connect);
+            buf[1] = @intFromEnum(Cmd.Connect);
             buf[2] = 0;
-            buf[3] = @enumToInt(Addr.TypeFQDN);
+            buf[3] = @intFromEnum(Addr.TypeFQDN);
             if (host.len > 255)
                 return error.NameTooLong;
-            buf[4] = @truncate(u8, host.len);
+            buf[4] = @truncate(host.len);
             mem.copy(u8, buf[5..5+host.len], host);
             mem.writeIntSliceBig(u16, buf[5+host.len..5+host.len+2], port);
 
@@ -103,20 +103,20 @@ pub const Socksv5 = struct {
 
         var buf: [6 + 16]u8 = undefined;
         buf[0] = VERSION;
-        buf[1] = @enumToInt(Cmd.Connect);
+        buf[1] = @intFromEnum(Cmd.Connect);
         buf[2] = 0;
         switch (destination.any.family) {
             os.AF.INET => {
-                buf[3] = @enumToInt(Addr.TypeIPv4);
-                const octets = @ptrCast(*const [4]u8, &destination.in.sa.addr);
+                buf[3] = @intFromEnum(Addr.TypeIPv4);
+                const octets: *const [4]u8 = @ptrCast(&destination.in.sa.addr);
                 mem.copy(u8, buf[4..8], octets);
                 mem.writeIntSliceBig(u16, buf[8..10], destination.getPort());
 
                 try writer.writeAll(buf[0..10]);
             },
             os.AF.INET6 => {
-                buf[3] = @enumToInt(Addr.TypeIPv6);
-                const octets = @ptrCast(*const [16]u8, &destination.in6.sa.addr);
+                buf[3] = @intFromEnum(Addr.TypeIPv6);
+                const octets: *const [16]u8 = @ptrCast(&destination.in6.sa.addr);
                 mem.copy(u8, buf[4..20], octets);
                 mem.writeIntSliceBig(u16, buf[20..22], destination.getPort());
 
@@ -133,13 +133,13 @@ pub const Socksv5 = struct {
         buf[0] = VERSION;
         if (auth) |_| {
             buf[1] = 2;
-            buf[2] = @enumToInt(Auth.MethodNone);
-            buf[3] = @enumToInt(Auth.MethodUserPassword);
+            buf[2] = @intFromEnum(Auth.MethodNone);
+            buf[3] = @intFromEnum(Auth.MethodUserPassword);
 
             try writer.writeAll(buf[0..4]);
         } else {
             buf[1] = 1;
-            buf[2] = @enumToInt(Auth.MethodNone);
+            buf[2] = @intFromEnum(Auth.MethodNone);
 
             try writer.writeAll(buf[0..3]);
         }
@@ -148,7 +148,7 @@ pub const Socksv5 = struct {
         if (buf[0] != VERSION) {
             return error.BadVersion;
         }
-        switch (@intToEnum(Auth, buf[1])) {
+        switch (@as(Auth, @enumFromInt(buf[1]))) {
             .MethodNone => {}, // server says no auth required, so continue.
             .MethodGssApi => return error.MethodNotAcceptable, // not yet
             .MethodNotAcceptable => return error.MethodNotAcceptable, 
@@ -159,10 +159,10 @@ pub const Socksv5 = struct {
                     }
 
                     buf[0] = Auth.VERSION;
-                    buf[1] = @truncate(u8, a.user.len);
+                    buf[1] = @truncate(a.user.len);
                     mem.copy(u8, buf[2..], a.user);
                     var idx: usize = 2 + a.user.len;
-                    buf[idx] = @truncate(u8, a.password.len);
+                    buf[idx] = @truncate(a.password.len);
                     idx += 1;
                     mem.copy(u8, buf[idx..], a.password);
                     idx += a.password.len;
@@ -186,7 +186,7 @@ pub const Socksv5 = struct {
         if (buf[0] != VERSION) {
             return error.BadVersion;
         }
-        switch (@intToEnum(Reply, buf[1])) {
+        switch (@as(Reply, @enumFromInt(buf[1]))) {
             .Success => {},
             .GeneralFailure => return error.GeneralFailure,
             .ConnectionNotAllowed => return error.ConnectionNotAllowed,
@@ -198,7 +198,7 @@ pub const Socksv5 = struct {
             .AddrTypeNotSupported => return error.AddrTypeNotSupported,
             _ => return error.UnexpectedReply,
         }
-        switch (@intToEnum(Addr, buf[3])) {
+        switch (@as(Addr, @enumFromInt(buf[3]))) {
             .TypeIPv4 => try reader.readNoEof(buf[0..4+2]),
             .TypeIPv6 => try reader.readNoEof(buf[0..16+2]),
             .TypeFQDN => {
@@ -264,7 +264,7 @@ pub const Socksv4 = struct {
             var idx: usize = 0;
 
             buf[0] = VERSION;
-            buf[1] = @enumToInt(Cmd.Connect);
+            buf[1] = @intFromEnum(Cmd.Connect);
             mem.writeIntSliceBig(u16, buf[2..4], port);
             mem.copy(u8, buf[4..8], &[_]u8{0, 0, 0, 1}); // SOCKS 4a IP marker
             idx = 8;
@@ -289,11 +289,11 @@ pub const Socksv4 = struct {
 
         var buf: [256]u8 = undefined;
         buf[0] = VERSION;
-        buf[1] = @enumToInt(Cmd.Connect);
+        buf[1] = @intFromEnum(Cmd.Connect);
         switch (destination.any.family) {
             os.AF.INET => {
                 mem.writeIntSliceBig(u16, buf[2..4], destination.getPort());
-                const octets = @ptrCast(*const [4]u8, &destination.in.sa.addr);
+                const octets: *const [4]u8 = @ptrCast(&destination.in.sa.addr);
                 mem.copy(u8, buf[4..8], octets);
             },
             os.AF.INET6 => return error.IPv6Unsupported,
@@ -316,7 +316,7 @@ pub const Socksv4 = struct {
         if (buf[0] != 0)
             return error.UnexpectedReply;
 
-        switch (@intToEnum(Reply, buf[1])) {
+        switch (@as(Reply, @enumFromInt(buf[1]))) {
             .RequestGranted => {},
             .RequestFailure => return error.RequestFailure,
             .IdentdHostFailure => return error.IdentdFailure,
@@ -346,7 +346,7 @@ test "mock SOCKS 5 server" {
         // 1st packet: method none auth
         Socksv5.VERSION, 0x01, 0,
         // 2nd packet - vers, method, rsrv, atyp, IPv4, port
-        Socksv5.VERSION, @enumToInt(Socksv5.Cmd.Connect), 0x00, 0x01, 127, 0, 0, 1, 0x20, 0xfb
+        Socksv5.VERSION, @intFromEnum(Socksv5.Cmd.Connect), 0x00, 0x01, 127, 0, 0, 1, 0x20, 0xfb
     };
     try std.testing.expectEqualStrings(client_stream.getWritten(), &expected);
 
@@ -356,7 +356,7 @@ test "mock SOCKS 5 server" {
     // mock server success response
     var server_bytes2 = [_]u8{
         // 1st packet: method auth password
-        0x05, @enumToInt(Socksv5.Auth.MethodUserPassword),
+        0x05, @intFromEnum(Socksv5.Auth.MethodUserPassword),
         // 2nd packet: indicate auth success
         0x05, 0x00,
         // 3rd packet
@@ -372,11 +372,11 @@ test "mock SOCKS 5 server" {
 
     const expected2 = [_]u8{
         // 1st packet: method userpassword auth 
-        Socksv5.VERSION, 0x02, @enumToInt(Socksv5.Auth.MethodNone), @enumToInt(Socksv5.Auth.MethodUserPassword),
+        Socksv5.VERSION, 0x02, @intFromEnum(Socksv5.Auth.MethodNone), @intFromEnum(Socksv5.Auth.MethodUserPassword),
         // 2nd packet: auth info
         Socksv5.Auth.VERSION, 0x01, 'a', 0x03, 'x', 'y', 'z',
         // 3rd packet - vers, method, rsrv, atyp, IPv4, port
-        Socksv5.VERSION, @enumToInt(Socksv5.Cmd.Connect), 0x00, 0x01, 127, 0, 0, 1, 0x20, 0xfb
+        Socksv5.VERSION, @intFromEnum(Socksv5.Cmd.Connect), 0x00, 0x01, 127, 0, 0, 1, 0x20, 0xfb
     };
     try std.testing.expectEqualStrings(client_stream.getWritten(), &expected2);
 }
@@ -387,7 +387,7 @@ test "mock SOCKS 4 server" {
 
     // mock server success response
     var server_bytes = [_]u8{
-        0, @enumToInt(Socksv4.Reply.RequestGranted), 0, 0, 0, 0, 0, 0
+        0, @intFromEnum(Socksv4.Reply.RequestGranted), 0, 0, 0, 0, 0, 0
     };
     var server_stream = io.fixedBufferStream(&server_bytes);
 
@@ -399,7 +399,7 @@ test "mock SOCKS 4 server" {
 
     const expected = [_]u8{
         Socksv4.VERSION,
-        @enumToInt(Socksv4.Cmd.Connect),
+        @intFromEnum(Socksv4.Cmd.Connect),
         0x20, 0xfb,  // port
         127, 0, 0, 1,
         'r', 'o', 'o', 't', 0x00

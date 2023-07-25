@@ -1,20 +1,24 @@
 const std = @import("std");
 
-pub const pkg = std.build.Pkg{
-    .name = "zig-socks",
-    .source = .{ .path = "socks.zig" },
-};
-
 pub fn build(b: *std.build.Builder) void {
-    const mode = b.standardReleaseOptions();
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
 
-    const lib = b.addStaticLibrary("zig-socks", "socks.zig");
-    lib.setBuildMode(mode);
-    lib.install();
+    const lib = b.addStaticLibrary(.{
+        .name = "zig-socks",
+        .root_source_file = .{ .path = "socks.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    b.installArtifact(lib);
 
-    const main_tests = b.addTest("socks.zig");
-    main_tests.setBuildMode(mode);
+    const socks_tests = b.addTest(.{
+        .root_source_file = .{ .path = "socks.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    const run_socks_tests = b.addRunArtifact(socks_tests);
 
     const test_step = b.step("test", "Run library tests");
-    test_step.dependOn(&main_tests.step);
+    test_step.dependOn(&run_socks_tests.step);
 }
