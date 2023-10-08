@@ -4,6 +4,11 @@ pub fn build(b: *std.build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    _ = b.addModule("zig-socks", .{
+        .source_file = .{ .path = "socks.zig" },
+        .dependencies = &[_]std.Build.ModuleDependency{},
+    });
+
     const lib = b.addStaticLibrary(.{
         .name = "zig-socks",
         .root_source_file = .{ .path = "socks.zig" },
