@@ -6,8 +6,8 @@
 const std = @import("std");
 const mem = std.mem;
 const io = std.io;
-const os = std.os;
 const net = std.net;
+const posix = std.posix;
 
 /// Socksv5 is a SOCKS 5 client
 pub const Socksv5 = struct {
@@ -89,8 +89,8 @@ pub const Socksv5 = struct {
             if (host.len > 255)
                 return error.NameTooLong;
             buf[4] = @truncate(host.len);
-            mem.copy(u8, buf[5..5+host.len], host);
-            mem.writeIntSliceBig(u16, buf[5+host.len..5+host.len+2], port);
+            @memcpy(buf[5..5+host.len], host);
+            mem.writeInt(u16, buf[5+host.len..5+host.len+2], port, .big);
 
             try writer.writeAll(buf[0..7+host.len]);
             try read_response(reader);
@@ -106,19 +106,19 @@ pub const Socksv5 = struct {
         buf[1] = @intFromEnum(Cmd.Connect);
         buf[2] = 0;
         switch (destination.any.family) {
-            os.AF.INET => {
+            posix.AF.INET => {
                 buf[3] = @intFromEnum(Addr.TypeIPv4);
                 const octets: *const [4]u8 = @ptrCast(&destination.in.sa.addr);
-                mem.copy(u8, buf[4..8], octets);
-                mem.writeIntSliceBig(u16, buf[8..10], destination.getPort());
+                @memcpy(buf[4..8], octets);
+                mem.writeInt(u16, buf[8..10], destination.getPort(), .big);
 
                 try writer.writeAll(buf[0..10]);
             },
-            os.AF.INET6 => {
+            posix.AF.INET6 => {
                 buf[3] = @intFromEnum(Addr.TypeIPv6);
                 const octets: *const [16]u8 = @ptrCast(&destination.in6.sa.addr);
-                mem.copy(u8, buf[4..20], octets);
-                mem.writeIntSliceBig(u16, buf[20..22], destination.getPort());
+                @memcpy(buf[4..20], octets);
+                mem.writeInt(u16, buf[20..22], destination.getPort(), .big);
 
                 try writer.writeAll(buf[0..22]);
             },
@@ -160,11 +160,11 @@ pub const Socksv5 = struct {
 
                     buf[0] = Auth.VERSION;
                     buf[1] = @truncate(a.user.len);
-                    mem.copy(u8, buf[2..], a.user);
+                    @memcpy(buf[2..][0..a.user.len], a.user);
                     var idx: usize = 2 + a.user.len;
                     buf[idx] = @truncate(a.password.len);
                     idx += 1;
-                    mem.copy(u8, buf[idx..], a.password);
+                    @memcpy(buf[idx..][0..a.password.len], a.password);
                     idx += a.password.len;
                     try writer.writeAll(buf[0..idx]);
 
@@ -265,14 +265,14 @@ pub const Socksv4 = struct {
 
             buf[0] = VERSION;
             buf[1] = @intFromEnum(Cmd.Connect);
-            mem.writeIntSliceBig(u16, buf[2..4], port);
-            mem.copy(u8, buf[4..8], &[_]u8{0, 0, 0, 1}); // SOCKS 4a IP marker
+            mem.writeInt(u16, buf[2..4], port, .big);
+            @memcpy(buf[4..8], &[_]u8{0, 0, 0, 1}); // SOCKS 4a IP marker
             idx = 8;
-            mem.copy(u8, buf[idx..], options.user);
+            @memcpy(buf[idx..], options.user);
             idx += options.user.len;
             buf[idx] = 0;
             idx += 1;
-            mem.copy(u8, buf[idx..], host);
+            @memcpy(buf[idx..], host);
             idx += host.len;
             buf[idx] = 0;
             idx += 1;
@@ -291,16 +291,16 @@ pub const Socksv4 = struct {
         buf[0] = VERSION;
         buf[1] = @intFromEnum(Cmd.Connect);
         switch (destination.any.family) {
-            os.AF.INET => {
-                mem.writeIntSliceBig(u16, buf[2..4], destination.getPort());
+            posix.AF.INET => {
+                mem.writeInt(u16, buf[2..4], destination.getPort(), .big);
                 const octets: *const [4]u8 = @ptrCast(&destination.in.sa.addr);
-                mem.copy(u8, buf[4..8], octets);
+                @memcpy(buf[4..8], octets);
             },
-            os.AF.INET6 => return error.IPv6Unsupported,
+            posix.AF.INET6 => return error.IPv6Unsupported,
             else => return error.Unsupported,
         }
         var idx: usize = 8;
-        mem.copy(u8, buf[idx..], options.user);
+        @memcpy(buf[idx..][0..options.user.len], options.user);
         idx += options.user.len;
         buf[idx] = 0;
         idx += 1;
