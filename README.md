@@ -1,7 +1,7 @@
 # zig-socks
 A simple, non-allocating SOCKS 5/4/4a client library for Zig
 
-*Tested against Zig 0.11.x*
+*Tested against Zig 0.13.x*
 
 ## Features
 - [x] Protocol version 5
