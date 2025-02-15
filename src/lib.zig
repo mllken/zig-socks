@@ -20,7 +20,7 @@ pub const Socksv5 = struct {
         MethodGssApi = 0x01,
         MethodUserPassword = 0x02,
         MethodNotAcceptable = 0xff,
-        _, 
+        _,
     };
 
     pub const Cmd = enum(u8) {
@@ -65,7 +65,7 @@ pub const Socksv5 = struct {
 
     /// Connect to the specified `destination` via the specified SOCKS 5 `proxy`
     pub fn connectAddress(proxy: net.Address, auth: ?AuthInfo, destination: net.Address) !net.Stream {
-        const stream = try net.tcpConnectToAddress(proxy); 
+        const stream = try net.tcpConnectToAddress(proxy);
         try Socksv5.clientAddress(stream.reader(), stream.writer(), auth, destination);
 
         return stream;
@@ -77,7 +77,7 @@ pub const Socksv5 = struct {
         if (net.Ip4Address.parse(host, port)) |dst| {
             return Socksv5.clientAddress(reader, writer, auth, dst);
         } else |_| if (net.Ip6Address.parse(host, port)) |dst| {
-                return Socksv5.clientAddress(reader, writer, auth, dst);
+            return Socksv5.clientAddress(reader, writer, auth, dst);
         } else |_| {
             try negotiate_auth(reader, writer, auth);
 
@@ -89,10 +89,10 @@ pub const Socksv5 = struct {
             if (host.len > 255)
                 return error.NameTooLong;
             buf[4] = @truncate(host.len);
-            @memcpy(buf[5..5+host.len], host);
-            mem.writeInt(u16, buf[5+host.len..5+host.len+2], port, .big);
+            @memcpy(buf[5 .. 5 + host.len], host);
+            mem.writeInt(u16, buf[5 + host.len .. 5 + host.len + 2], port, .big);
 
-            try writer.writeAll(buf[0..7+host.len]);
+            try writer.writeAll(buf[0 .. 7 + host.len]);
             try read_response(reader);
         }
     }
@@ -151,7 +151,7 @@ pub const Socksv5 = struct {
         switch (@as(Auth, @enumFromInt(buf[1]))) {
             .MethodNone => {}, // server says no auth required, so continue.
             .MethodGssApi => return error.MethodNotAcceptable, // not yet
-            .MethodNotAcceptable => return error.MethodNotAcceptable, 
+            .MethodNotAcceptable => return error.MethodNotAcceptable,
             .MethodUserPassword => {
                 if (auth) |a| {
                     if (a.user.len > 255 or a.password.len > 255) {
@@ -172,8 +172,7 @@ pub const Socksv5 = struct {
                     if (buf[1] != 0) {
                         return error.AuthFailure;
                     }
-                } else
-                    return error.UnexpectedMethod;
+                } else return error.UnexpectedMethod;
             },
             _ => return error.UnexpectedMethod,
         }
@@ -199,11 +198,11 @@ pub const Socksv5 = struct {
             _ => return error.UnexpectedReply,
         }
         switch (@as(Addr, @enumFromInt(buf[3]))) {
-            .TypeIPv4 => try reader.readNoEof(buf[0..4+2]),
-            .TypeIPv6 => try reader.readNoEof(buf[0..16+2]),
+            .TypeIPv4 => try reader.readNoEof(buf[0 .. 4 + 2]),
+            .TypeIPv6 => try reader.readNoEof(buf[0 .. 16 + 2]),
             .TypeFQDN => {
                 const n = try reader.readByte();
-                try reader.readNoEof(buf[0..n+2]);
+                try reader.readNoEof(buf[0 .. n + 2]);
             },
             _ => return error.InvalidAddress,
         }
@@ -229,7 +228,7 @@ pub const Socksv4 = struct {
     };
 
     pub const Options = struct {
-        user: []const u8 = "unknown",  // don't "leak" the client's username by default
+        user: []const u8 = "unknown", // don't "leak" the client's username by default
     };
 
     /// Connect to the specified `host` and `port` via the specified SOCKS 4 `proxy`.
@@ -266,13 +265,13 @@ pub const Socksv4 = struct {
             buf[0] = VERSION;
             buf[1] = @intFromEnum(Cmd.Connect);
             mem.writeInt(u16, buf[2..4], port, .big);
-            @memcpy(buf[4..8], &[_]u8{0, 0, 0, 1}); // SOCKS 4a IP marker
+            @memcpy(buf[4..8], &[_]u8{ 0, 0, 0, 1 }); // SOCKS 4a IP marker
             idx = 8;
-            @memcpy(buf[idx..], options.user);
+            @memcpy(buf[idx..][0..options.user.len], options.user);
             idx += options.user.len;
             buf[idx] = 0;
             idx += 1;
-            @memcpy(buf[idx..], host);
+            @memcpy(buf[idx..][0..host.len], host);
             idx += host.len;
             buf[idx] = 0;
             idx += 1;
@@ -335,18 +334,25 @@ test "mock SOCKS 5 server" {
         // 1st packet
         0x05, 0x00,
         // 2nd packet
-        0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0xbb, 0xbb
+        0x05, 0x00,
+        0x00, 0x01,
+        127,  0,
+        0,    1,
+        0xbb, 0xbb,
     };
     var server_stream = io.fixedBufferStream(&server_bytes);
 
-    const dst = net.Address.initIp4([_]u8{127, 0, 0, 1}, 8443);
+    const dst = net.Address.initIp4([_]u8{ 127, 0, 0, 1 }, 8443);
     try Socksv5.clientAddress(server_stream.reader(), client_stream.writer(), null, dst);
 
     const expected = [_]u8{
         // 1st packet: method none auth
-        Socksv5.VERSION, 0x01, 0,
+        Socksv5.VERSION, 0x01,                              0,
         // 2nd packet - vers, method, rsrv, atyp, IPv4, port
-        Socksv5.VERSION, @intFromEnum(Socksv5.Cmd.Connect), 0x00, 0x01, 127, 0, 0, 1, 0x20, 0xfb
+        Socksv5.VERSION, @intFromEnum(Socksv5.Cmd.Connect), 0x00,
+        0x01,            127,                               0,
+        0,               1,                                 0x20,
+        0xfb,
     };
     try std.testing.expectEqualStrings(client_stream.getWritten(), &expected);
 
@@ -360,7 +366,11 @@ test "mock SOCKS 5 server" {
         // 2nd packet: indicate auth success
         0x05, 0x00,
         // 3rd packet
-        0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0xbb, 0xbb
+        0x05, 0x00,
+        0x00, 0x01,
+        127,  0,
+        0,    1,
+        0xbb, 0xbb,
     };
     var server_stream2 = io.fixedBufferStream(&server_bytes2);
 
@@ -371,12 +381,16 @@ test "mock SOCKS 5 server" {
     try Socksv5.clientAddress(server_stream2.reader(), client_stream.writer(), ai, dst);
 
     const expected2 = [_]u8{
-        // 1st packet: method userpassword auth 
-        Socksv5.VERSION, 0x02, @intFromEnum(Socksv5.Auth.MethodNone), @intFromEnum(Socksv5.Auth.MethodUserPassword),
+        // 1st packet: method userpassword auth
+        Socksv5.VERSION,                   0x02, @intFromEnum(Socksv5.Auth.MethodNone), @intFromEnum(Socksv5.Auth.MethodUserPassword),
         // 2nd packet: auth info
-        Socksv5.Auth.VERSION, 0x01, 'a', 0x03, 'x', 'y', 'z',
+        Socksv5.Auth.VERSION,              0x01, 'a',                                   0x03,
+        'x',                               'y',  'z',
         // 3rd packet - vers, method, rsrv, atyp, IPv4, port
-        Socksv5.VERSION, @intFromEnum(Socksv5.Cmd.Connect), 0x00, 0x01, 127, 0, 0, 1, 0x20, 0xfb
+                                          Socksv5.VERSION,
+        @intFromEnum(Socksv5.Cmd.Connect), 0x00, 0x01,                                  127,
+        0,                                 0,    1,                                     0x20,
+        0xfb,
     };
     try std.testing.expectEqualStrings(client_stream.getWritten(), &expected2);
 }
@@ -386,24 +400,24 @@ test "mock SOCKS 4 server" {
     var client_stream = io.fixedBufferStream(&client_bytes);
 
     // mock server success response
-    var server_bytes = [_]u8{
-        0, @intFromEnum(Socksv4.Reply.RequestGranted), 0, 0, 0, 0, 0, 0
-    };
+    var server_bytes = [_]u8{ 0, @intFromEnum(Socksv4.Reply.RequestGranted), 0, 0, 0, 0, 0, 0 };
     var server_stream = io.fixedBufferStream(&server_bytes);
 
-    const options = Socksv4.Options {
+    const options = Socksv4.Options{
         .user = "root",
     };
-    const dst = net.Address.initIp4([_]u8{127, 0, 0, 1}, 8443);
+    const dst = net.Address.initIp4([_]u8{ 127, 0, 0, 1 }, 8443);
     try Socksv4.clientAddress(server_stream.reader(), client_stream.writer(), options, dst);
 
     const expected = [_]u8{
         Socksv4.VERSION,
         @intFromEnum(Socksv4.Cmd.Connect),
-        0x20, 0xfb,  // port
-        127, 0, 0, 1,
-        'r', 'o', 'o', 't', 0x00
+        0x20, 0xfb, // port
+        127,  0,
+        0,    1,
+        'r',  'o',
+        'o',  't',
+        0x00,
     };
     try std.testing.expectEqualStrings(client_stream.getWritten(), &expected);
 }
-
